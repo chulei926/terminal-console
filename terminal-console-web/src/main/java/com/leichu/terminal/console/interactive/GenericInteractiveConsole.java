@@ -23,7 +23,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-public abstract class GenericInteractiveConsole {
+public abstract class GenericInteractiveConsole implements InteractiveConsole {
 
 	private static final Logger logger = LoggerFactory.getLogger(GenericInteractiveConsole.class);
 
@@ -33,12 +33,6 @@ public abstract class GenericInteractiveConsole {
 	protected static final String NEXT_LINE_REG = "[\r\n]";
 	protected static final String MULTI_LINE_REG = "[\r\n]+";
 	protected static final String LINE_REG = "\n";
-
-//	protected static final Map<String, byte[]> CTRL_MAP = new HashMap<String, byte[]>() {{
-//		put("ctrl c", new byte[]{3});
-//		put("ctrl ]", new byte[]{29});
-//		put(" ", new byte[]{32});
-//	}};
 
 	protected static final Splitter SPLITTER = Splitter.onPattern(NEXT_LINE_REG).trimResults().omitEmptyStrings();
 	private final static ExecutorService CACHED_THREAD_POOL = Executors.newCachedThreadPool();
@@ -74,7 +68,7 @@ public abstract class GenericInteractiveConsole {
 
 	private String readResponse(Command command, Long timeout) throws Exception {
 		Future<String> future = CACHED_THREAD_POOL.submit(() -> readResponse(command));
-		return future.get(null == timeout ? EXEC_WAIT_TIMEOUT : timeout, TimeUnit.MILLISECONDS);
+		return future.get(null == timeout ? EXEC_WAIT_TIMEOUT : timeout, TimeUnit.SECONDS);
 	}
 
 	public String readResponse(Command command) throws Exception {

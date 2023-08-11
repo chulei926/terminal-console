@@ -5,9 +5,13 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 
 @ChannelHandler.Sharable
-public class TelnetClientHandler extends SimpleChannelInboundHandler<String> {
+public class TelnetClientHandler extends SimpleChannelInboundHandler<String> implements TelnetTcpClientHandler {
 
-	private static final StringBuffer RESPONSE = new StringBuffer();
+	private final StringBuffer RESPONSE;
+
+	public TelnetClientHandler(StringBuffer RESPONSE) {
+		this.RESPONSE = RESPONSE;
+	}
 
 	@Override
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
@@ -24,6 +28,7 @@ public class TelnetClientHandler extends SimpleChannelInboundHandler<String> {
 	//打印读取到的数据
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
+		System.out.println(">>>>> " + msg);
 		RESPONSE.append(msg);
 	}
 
@@ -32,17 +37,6 @@ public class TelnetClientHandler extends SimpleChannelInboundHandler<String> {
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
 		cause.printStackTrace();
 		ctx.close();
-	}
-
-	public void clearResponse() {
-		if (RESPONSE.length() <= 0) {
-			return;
-		}
-		RESPONSE.delete(0, RESPONSE.length());
-	}
-
-	public String readResponse() {
-		return RESPONSE.toString();
 	}
 
 }

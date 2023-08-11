@@ -28,7 +28,6 @@ public class SshInteractiveConsole extends GenericInteractiveConsole {
 	private final Charset charset;
 
 
-
 	public SshInteractiveConsole(ChannelShell channel, InteractiveConfig interactiveConfig, Charset charset) {
 		super(interactiveConfig, charset);
 		this.channel = channel;
@@ -58,4 +57,18 @@ public class SshInteractiveConsole extends GenericInteractiveConsole {
 		return super.sendCommand(command);
 	}
 
+	@Override
+	public void write(byte[] content) throws Exception {
+		OutputStream stdIn = channel.getInvertedIn();
+		stdIn.write(content);
+		stdIn.flush();
+	}
+
+	@Override
+	public byte[] read() throws Exception {
+		// 切换到输出模式，获取命令执行的结果
+		channel.waitFor(EnumSet.of(ClientChannelEvent.CLOSED), EXEC_WAIT_TIMEOUT);
+		InputStream stdOut = channel.getInvertedOut();
+		return readInputStream(stdOut);
+	}
 }

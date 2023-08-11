@@ -29,6 +29,7 @@ public class SshChannelHelper {
 		try {
 			PtyChannelConfiguration ptyChannelConfiguration = new PtyChannelConfiguration();
 			ptyChannelConfiguration.setPtyColumns(1000);
+			ptyChannelConfiguration.setPtyType("xterm");
 			channel = session.createShellChannel(ptyChannelConfiguration, new HashMap<>());
 			channel.setRedirectErrorStream(true);
 			channel.open().verify(DEFAULT_TIMEOUT, TimeUnit.SECONDS);

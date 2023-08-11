@@ -18,7 +18,9 @@
     "vue-router": "^4.1.2",
     "vue3-uuid": "^1.0.0",
     "xterm": "^5.0.0",
+    "xterm-addon-attach": "^0.8.0",
     "xterm-addon-fit": "^0.6.0",
+    "xterm-style": "^1.1.0",
     "xterm-theme": "^1.1.0"
   },
   "devDependencies": {

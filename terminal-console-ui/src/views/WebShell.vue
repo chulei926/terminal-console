@@ -5,109 +5,78 @@
 </template>
 
 <script lang="ts" setup>
-import {nextTick, ref, toRefs} from 'vue'
+import {nextTick, ref, toRefs, watch} from 'vue'
 import {Terminal} from 'xterm'
 import {FitAddon} from 'xterm-addon-fit'
+import { AttachAddon } from 'xterm-addon-attach';
 import "xterm/css/xterm.css";
 
 import {v4 as uuidv4} from 'uuid';
 
 import {ElLoading} from 'element-plus'
-import {AdventureTime} from 'xterm-theme';
+import {common as xtermTheme} from 'xterm-style'
 
 const props = defineProps({
 	sid: {
-		type: String,
+		type: Object,
 		default: NaN
 	}
+})
+
+watch(props.sid, ()=>{
+	console.log('监听到sid发生变化:',props.sid)
 })
 
 const loadingInstance = ElLoading.service({lock: true, text: '连接中...'})
 const boxId = ref(uuidv4())
 
 const boxStyle = ref({
-	height: document.documentElement.clientHeight || document.body.clientHeight - 50,
-	width: document.documentElement.clientWidth || document.body.clientWidth
+	height: document.documentElement.clientHeight || document.body.clientHeight - 40,
+	width: document.body.clientWidth
 })
-
 
 let term: any = ref(null)
 let fitAddon: any = ref(null)
 const termHeight = ref(Number.parseInt(`${boxStyle.value.height / 18}`));
 
-
-const cmd: any = ref('');
 let ws: any = null;
-let wsHeartChecker: any = {};
-
+// let wsHeartChecker: any = {};
 
 const initTerm = () => {
-	const {sid} = toRefs(props)
+	loadingInstance.visible.value = true;
+	connWs();
+
 	let termContainer: any = document.getElementById(boxId.value)
 	term = new Terminal({
-		cursorBlink: true,
-		cols: 100,
+		cols: 80,
 		rows: termHeight.value,
+		cursorStyle: 'bar', // 光标样式  null | 'block' | 'underline' | 'bar'
+		cursorBlink: true, // 光标闪烁
+		convertEol: true, //启用时，光标将设置为下一行的开头
+		scrollback: 100, //回滚
+		tabStopWidth: 4, //制表宽度
 		lineHeight: 1,
-		disableStdin: false,
-		theme: AdventureTime
+		disableStdin: false, //是否应禁用输入。
+		theme: xtermTheme
 	})
-	term.open(termContainer)
-	connWs();
-	setTimeout(() => {
-		ws.send(JSON.stringify({sid: sid?.value, command: ''}));
-	}, 1000)
-	// 换行并输入起始符 $
-	// term.prompt = () => {
-	// 	term.write("\r\n\x1b[33m$\x1b[0m ")
-	// }
-	// 添加事件监听器，支持输入方法
-	term.onKey((e: any) => {
-		const printable = !e.domEvent.altKey && !e.domEvent.altGraphKey && !e.domEvent.ctrlKey && !e.domEvent.metaKey
-		if (e.domEvent.keyCode === 13) {
-			ws.send(JSON.stringify({sid: sid?.value, command: `${cmd.value}\n`}));
-			cmd.value = '';
-		} else if (e.domEvent.keyCode === 8) { // back 删除的情况
-			if (term._core.buffer.x > 2) {
-				term.write('\b \b')
-				cmd.value = cmd.value.substring(0, cmd.value.length - 2)
-				console.log(cmd.value)
-			}
-		} else if (printable) {
-			term.write(e.key)
-			cmd.value = `${cmd.value}${e.key}`
-		}
-		// console.log(1, 'print', e.key)
-	})
-	term.onData((key: any) => {  // 粘贴的情况
-		if (key.length > 1) term.write(key)
-	})
-	// canvas背景全屏
+
+	const attachAddon = new AttachAddon(ws);
+	term.loadAddon(attachAddon);
+
 	fitAddon = new FitAddon()
 	term.loadAddon(fitAddon)
+	term.open(termContainer)
+	term.focus();
 	fitAddon.fit()
+	loadingInstance.visible.value = false;
 }
 
 const connWs = () => {
 	const {sid} = toRefs(props)
-	console.log('子组件获取到 sid: ', sid)
-	const url = `ws://localhost:50000/app`;
+	let sidVal = sid?.value.toString()
+	console.log('子组件获取到 sid: ', sidVal)
+	const url = `ws://localhost:50000/app?sid=${sidVal}`;
 	ws = new WebSocket(url);
-	wsHeartChecker = {
-		timeout: 60000,
-		timeoutObj: null,
-		reset: function () {
-			clearInterval(this.timeoutObj);
-			this.start();
-		},
-		start: function () {
-			this.timeoutObj = setInterval(function () {
-				if (ws.readyState === 1) {
-					ws.send("hb");
-				}
-			}, this.timeout)
-		}
-	};
 	ws.onopen = wsOnopen;
 	ws.onmessage = wsOnmessage;
 	ws.onclose = wsOnclose;
@@ -115,24 +84,21 @@ const connWs = () => {
 
 const wsOnopen = (event: any) => {
 	console.log("onopen: ", event);
-	wsHeartChecker.start();
+	ws.send('\r')
 }
 
 const wsOnmessage = (message: any) => {
-	// 无论收到什么信息，说明当前连接正常，将心跳检测的计时器重置
-	wsHeartChecker.reset();
 	console.log("client received a message.data: " + message.data);
-	if (message.data !== "hb_ok") {
-		// 不要将ping的答复信息输出
-		term.write(message.data)
-	}
+	// term.write(message.data)
 }
 
 const wsOnclose = (event: any) => {
 	if (event.code !== 4500) {
 		//4500为服务端在打开多tab时主动关闭返回的编码
 		// connect();
+
 	}
+	console.log('服务端关闭')
 }
 
 const resizeEvent = () => {
@@ -146,12 +112,12 @@ const resizeEvent = () => {
 }
 window.addEventListener("resize", resizeEvent);
 
+
+
 nextTick(() => {
 	initTerm();
 	loadingInstance.close();
 	resizeEvent()
 
 })
-
-
 </script>

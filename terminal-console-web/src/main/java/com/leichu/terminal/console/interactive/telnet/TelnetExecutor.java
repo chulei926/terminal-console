@@ -24,6 +24,7 @@ public class TelnetExecutor extends AbstractExecutor {
 		telnetClientConsole.connect();
 		telnetClientConsole.login(authParam.getUsername(), authParam.getPwd());
 		super.connected = Boolean.TRUE;
+		super.interactiveConsole = telnetClientConsole;
 	}
 
 	@Override

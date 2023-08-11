@@ -27,6 +27,7 @@ public class SshExecutor extends AbstractExecutor {
 		session.connect();
 		channel = SshChannelHelper.getChannelShell(session.getSession(), interactiveConfig);
 		sshInteractiveConsole = new SshInteractiveConsole(channel, interactiveConfig, charset);
+
 		try {
 			// 通道开启后，立即执行换行，防止出现设备的欢迎语，如：Welcome to Huawei Cloud Service
 			Command command = new Command("\r\n");
@@ -36,6 +37,7 @@ public class SshExecutor extends AbstractExecutor {
 			logger.error("Reset ssh channel error!", e);
 		}
 		super.connected = Boolean.TRUE;
+		super.interactiveConsole = sshInteractiveConsole;
 	}
 
 	@Override

@@ -2,15 +2,13 @@ package com.leichu.terminal.console.interactive.telnet;
 
 import com.leichu.terminal.console.interactive.GenericInteractiveConsole;
 import com.leichu.terminal.console.interactive.config.InteractiveConfig;
+import com.leichu.terminal.console.interactive.exception.AuthException;
 import com.leichu.terminal.console.interactive.exception.ConnectionException;
 import com.leichu.terminal.console.interactive.model.Command;
 import com.leichu.terminal.console.interactive.utils.DateTimeUtils;
 import com.leichu.terminal.console.interactive.utils.RegUtils;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -18,7 +16,6 @@ import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.mina.filter.codec.textline.TextLineDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +36,10 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 
 	private Channel channel = null;
 
-	private static final TelnetClientHandler CLIENT_HANDLER = new TelnetClientHandler();
+	private final TelnetTcpClientHandler clientHandler;
+
+	private static final StringBuffer RESPONSE = new StringBuffer();
+//	private static final List<byte[]> RESPONSE = new CopyOnWriteArrayList<>();
 
 	public TelnetClientConsole(String host, Integer port, InteractiveConfig interactiveConfig, Charset charset) {
 		super(interactiveConfig, charset);
@@ -51,6 +51,10 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 		this.group = new NioEventLoopGroup();
 		this.bootstrap = new Bootstrap();
 		this.registerHook();
+
+		clientHandler = new TelnetClientHandler(RESPONSE);
+//		clientHandler = new TelnetClientHandler4Stream(RESPONSE);
+
 	}
 
 	private void registerHook() {
@@ -59,7 +63,6 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 	}
 
 	public void connect() {
-		// Start the connection attempt.
 		try {
 			bootstrap.group(group)
 					.channel(NioSocketChannel.class)
@@ -69,7 +72,7 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 							ChannelPipeline pipeline = ch.pipeline();
 							pipeline.addLast(new StringDecoder(charset));
 							pipeline.addLast(new StringEncoder(charset));
-							pipeline.addLast(CLIENT_HANDLER);
+							pipeline.addLast((ChannelHandler) clientHandler);
 						}
 					});
 			channel = bootstrap.connect(host, port).sync().channel();
@@ -82,22 +85,28 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 
 	public void login(String username, String password) {
 		while (true) {
-			String response = CLIENT_HANDLER.readResponse();
-			if (StringUtils.isBlank(response)) {
-				DateTimeUtils.sleep(1);
-				continue;
-			}
-			if (match(response, config.getTelnetUsernameIdentifier())) {
-				CLIENT_HANDLER.clearResponse();
-				channel.writeAndFlush(username + ENTER_KEY);
-				continue;
-			}
-			if (match(response, config.getTelnetPasswordIdentifier())) {
-				CLIENT_HANDLER.clearResponse();
-				channel.writeAndFlush(password + ENTER_KEY);
-				String successFlag = readResponse4Login();
-				logger.info("Login success：{}", successFlag);
-				break;
+			try {
+//				byte[] data = read();
+				String response = RESPONSE.toString();
+				if (StringUtils.isBlank(response)) {
+					DateTimeUtils.sleep(1);
+					continue;
+				}
+				if (match(response, config.getTelnetUsernameIdentifier())) {
+					clearCache();
+					channel.writeAndFlush(username + ENTER_KEY);
+					continue;
+				}
+				if (match(response, config.getTelnetPasswordIdentifier())) {
+					clearCache();
+					channel.writeAndFlush(password + ENTER_KEY);
+					String successFlag = readResponse4Login();
+					logger.info("Login success：{}", successFlag);
+					break;
+				}
+			} catch (Exception e) {
+				logger.error("Login error!", e);
+				throw new AuthException(host, e.getMessage());
 			}
 			DateTimeUtils.sleep(1);
 		}
@@ -119,14 +128,14 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 
 	@Override
 	public void writeCommand(String command) throws Exception {
-		CLIENT_HANDLER.clearResponse();
+		clearCache();
 		channel.writeAndFlush(command + ENTER_KEY);
 	}
 
 	@Override
 	public String readResponse() throws Exception {
-		String response = CLIENT_HANDLER.readResponse();
-		CLIENT_HANDLER.clearResponse();
+		String response = RESPONSE.toString();
+		clearCache();
 		return response;
 	}
 
@@ -135,13 +144,13 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 		return super.sendCommand(command);
 	}
 
-	private String readResponse4Login() {
+	private String readResponse4Login() throws Exception {
 		StringBuffer result = new StringBuffer();
 		do {
-			String resp = CLIENT_HANDLER.readResponse();
+			String resp = RESPONSE.toString();
 			if (StringUtils.isNotBlank(resp)) {
 				result.append(resp);
-				CLIENT_HANDLER.clearResponse();
+				clearCache();
 				if (matchEnd(result.toString())) {
 					break;
 				}
@@ -186,11 +195,27 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 		return group;
 	}
 
-	public Channel getChannel() {
-		return channel;
-	}
-
 	public void setChannel(Channel channel) {
 		this.channel = channel;
+	}
+
+	@Override
+	public void write(byte[] content) throws Exception {
+		RESPONSE.append(new String(content));
+		if (content.length == 1 && content[0] == 13) {
+			channel.writeAndFlush(ENTER_KEY);
+			return;
+		}
+		System.out.println("Input:" + new String(content));
+		channel.writeAndFlush(content);
+	}
+
+	@Override
+	public byte[] read() throws Exception {
+		return readResponse().getBytes();
+	}
+
+	private void clearCache() {
+		RESPONSE.setLength(0);
 	}
 }

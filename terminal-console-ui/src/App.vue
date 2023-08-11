@@ -1,5 +1,5 @@
 <template>
-	<el-tabs v-model="editableTabsValue" type="card" class="demo-tabs" editable @tab-remove="removeTab" @tab-add="addTab()">
+	<el-tabs v-model="editableTabsValue" type="card" :style="{width: whStyle.width + 'px', height: whStyle.height + 'px'}" editable @tab-remove="removeTab" @tab-add="addTab()">
 		<el-tab-pane v-for="item in editableTabs" :key="item.name" :name="item.name" :lazy="true">
 			<template #label>
 		        <span>
@@ -12,6 +12,23 @@
 
 	<el-dialog v-model="dialogFormVisible" title="连接属性" width="520" draggable :close-on-click-modal="false">
 		<el-form :model="form">
+			<el-form-item label="协议" :label-width="formLabelWidth">
+				<el-col :span="12">
+					<el-radio-group v-model="form.protocol">
+						<el-radio label="SSH" size="large">SSH</el-radio>
+						<el-radio label="TELNET" size="large">TELNET</el-radio>
+					</el-radio-group>
+				</el-col>
+			</el-form-item>
+			<el-form-item label="厂家" :label-width="formLabelWidth">
+				<el-col :span="12">
+					<el-radio-group v-model="form.vendor">
+						<el-radio label="LINUX" size="large">LINUX</el-radio>
+						<el-radio label="HW" size="large">HW</el-radio>
+					</el-radio-group>
+				</el-col>
+			</el-form-item>
+
 			<el-form-item label="主机" :label-width="formLabelWidth">
 				<el-col :span="11">
 					<el-input v-model="form.ip" placeholder="请输入IP地址" autocomplete="off"/>
@@ -50,15 +67,22 @@ import {auth} from './api/ssh'
 const dialogFormVisible = ref(false)
 const formLabelWidth = '80px'
 const form = reactive({
-	ip: '123.249.85.241',
-	port: 22,
-	username: 'root',
-	pwd: 'csx@20190821',
+	ip: '192.168.60.60',
+	port: 9999,
+	username: 'huawei_user',
+	pwd: 'Huawei@1234!',
+	protocol: 'TELNET',
+	vendor: 'HW',
 })
 
 let tabIndex = 0
 const editableTabsValue = ref('')
 const editableTabs = shallowRef(new Array())
+const whStyle = ref({
+	height: 50,
+	width: document.body.clientWidth
+})
+
 
 const addTab = () => {
 	// TODO 打开对话框，创建连接
@@ -71,6 +95,7 @@ const removeTab = (targetName: string) => {
 	if (activeName === targetName) {
 		tabs.forEach((tab, index) => {
 			if (tab.name === targetName) {
+				tab.sid = null;
 				const nextTab = tabs[index + 1] || tabs[index - 1]
 				if (nextTab) {
 					activeName = nextTab.name
@@ -80,6 +105,12 @@ const removeTab = (targetName: string) => {
 	}
 	editableTabsValue.value = activeName
 	editableTabs.value = tabs.filter((tab) => tab.name !== targetName)
+	console.log('移除tab:', editableTabs.value)
+	for (let i = 0; i < editableTabs.value.length; i++) {
+		if (editableTabs.value[i].name == targetName) {
+			editableTabs.value[i].sid = null;
+		}
+	}
 }
 
 const sshConnConfirm = () => {
@@ -106,4 +137,8 @@ const sshConnCancel = () => {
 }
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+//.demo-tabs{
+//	width: 1000px;
+//}
+</style>

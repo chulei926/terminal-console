@@ -23,6 +23,7 @@ public abstract class AbstractExecutor implements Executor {
 	protected InteractiveConfig interactiveConfig;
 	protected Charset charset = Charset.defaultCharset();
 	protected volatile Boolean connected = Boolean.FALSE;
+	protected InteractiveConsole interactiveConsole;
 
 	@Override
 	public void setAuthParam(AuthParam authParam) {
@@ -128,5 +129,10 @@ public abstract class AbstractExecutor implements Executor {
 				logger.error("Callback function execution error! Command:{}", command, e);
 			}
 		}
+	}
+
+	@Override
+	public InteractiveConsole getConsole() {
+		return interactiveConsole;
 	}
 }

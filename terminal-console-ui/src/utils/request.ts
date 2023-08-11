@@ -18,8 +18,8 @@ service.interceptors.response.use(res => {
     return Promise.reject(res)
 }, err => {
     console.error('响应异常', err)
-    if (err.response && err.response.data && err.response.data.code === 500) {
-        return Promise.reject(err.response.data.message || '服务端异常')
+    if (err.response && err.response.data && err.response.data.errorCode === 500) {
+        return Promise.reject(err.response.data.errorInfo || '服务端异常')
     }
     return Promise.reject(err)
 });
