@@ -10,7 +10,9 @@ import com.leichu.terminal.console.interactive.utils.RegUtils;
 import com.leichu.terminal.console.utils.ThreadPoolHelper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.net.telnet.*;
+import org.apache.commons.net.telnet.EchoOptionHandler;
+import org.apache.commons.net.telnet.TelnetClient;
+import org.apache.commons.net.telnet.TerminalTypeOptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -52,10 +54,11 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 
 		try {
 			telnetClient.addOptionHandler(new TerminalTypeOptionHandler("xterm", false, false, false, false));
-			telnetClient.addOptionHandler(new EchoOptionHandler(true, false, true, false));
-		} catch (Exception e){
-			logger.error("TelnetClient option handler set error!", e);
+			telnetClient.addOptionHandler(new EchoOptionHandler(true, true, false, false));
+		} catch (Exception e) {
+			logger.error("TelnetClient terminalTypeOption set error!", e);
 		}
+
 		responseReadThreadPool = ThreadPoolHelper.createSimplePool(1, 1, "TELNET-RESPONSE-READER-");
 	}
 

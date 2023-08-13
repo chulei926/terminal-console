@@ -8,7 +8,7 @@
 import {nextTick, ref, toRefs, watch} from 'vue'
 import {Terminal} from 'xterm'
 import {FitAddon} from 'xterm-addon-fit'
-import { AttachAddon } from 'xterm-addon-attach';
+import {AttachAddon} from 'xterm-addon-attach';
 import "xterm/css/xterm.css";
 
 import {v4 as uuidv4} from 'uuid';
@@ -23,8 +23,8 @@ const props = defineProps({
 	}
 })
 
-watch(props.sid, ()=>{
-	console.log('监听到sid发生变化:',props.sid)
+watch(props.sid, () => {
+	console.log('监听到sid发生变化:', props.sid)
 })
 
 const loadingInstance = ElLoading.service({lock: true, text: '连接中...'})
@@ -74,8 +74,8 @@ const initTerm = () => {
 const connWs = () => {
 	const {sid} = toRefs(props)
 	let sidVal = sid?.value.toString()
-	console.log('子组件获取到 sid: ', sidVal)
-	const url = `ws://localhost:50000/app?sid=${sidVal}`;
+	// console.log('子组件获取到 sid: ', sidVal)
+	let url = `ws://${window.location.host}${import.meta.env.VITE_WS_BASE_URL}?sid=${sidVal}`;
 	ws = new WebSocket(url);
 	ws.onopen = wsOnopen;
 	ws.onmessage = wsOnmessage;
@@ -83,12 +83,12 @@ const connWs = () => {
 }
 
 const wsOnopen = (event: any) => {
-	console.log("onopen: ", event);
+	// console.log("onopen: ", event);
 	ws.send('\r')
 }
 
 const wsOnmessage = (message: any) => {
-	console.log("client received a message.data: " + message.data);
+	// console.log("client received a message.data: " + message.data);
 	// term.write(message.data)
 }
 
@@ -111,7 +111,6 @@ const resizeEvent = () => {
 	fitAddon.fit()
 }
 window.addEventListener("resize", resizeEvent);
-
 
 
 nextTick(() => {

@@ -14,13 +14,21 @@ APP_VERSION_IMG=$(echo $APP_VERSION | tr '.' '_')
 TAR_NAME=${APP_NAME}-${cur_date}_${APP_VERSION_IMG}.tar
 echo "获取到当前项目名称：${APP_NAME}, 当前版本号：${APP_VERSION}, 镜像版名：${TAR_NAME}, 开始执行Maven构建。"
 
-mvn clean package -Dmaven.test.skip=true
+
+# 前端构建
+cd $(dirname $cur_path)/terminal-console-ui && npm run build:prod
+echo "前端构建完成"
+
+cd $cur_path && mvn clean package -Dmaven.test.skip=true
 echo "Maven构建完成，开始构建Docker镜像"
 
 docker rm -f $(docker ps -a|grep $APP_NAME|awk '{print $1}')
+
+
 #
 cd $cur_path/target &&  ls -al &&
- docker build --rm -t ${APP_NAME}:${cur_date}.${APP_VERSION} --platform=linux/x86_64 . &&
+# docker build --rm -t ${APP_NAME}:${cur_date}.${APP_VERSION} --platform=linux/x86_64 . &&
+ docker build --rm -t ${APP_NAME}:${cur_date}.${APP_VERSION}  . &&
  echo "镜像已构建" &&
  docker images|grep ${APP_NAME} &&
  docker save -o ${TAR_NAME} ${APP_NAME}:${cur_date}.${APP_VERSION} &&
@@ -44,4 +52,6 @@ increment_version ()
 new_version=$(increment_version $APP_VERSION)
 cd $cur_path && mvn versions:set -DnewVersion=$new_version && mvn versions:commit
 echo "构建完成，新的版本号: ${new_version}"
+
+echo "docker run -d -p 50000:50000 --name ${APP_NAME} ${APP_NAME}:${cur_date}.${APP_VERSION}"
 

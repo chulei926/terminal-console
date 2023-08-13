@@ -23,12 +23,17 @@ export default defineConfig({
                 // rewrite: (path) => path.replace(/^\/api/, '')     // 注意代理地址的重写
             },
             // 可配置多个...
+            '/app': {
+                target: 'ws://localhost:50000',
+                ws: true,
+            },
         }
     },
     // 打包配置
     build: {
         target: 'modules',
-        outDir: './terminal-console-ui', //指定输出路径
+        // outDir: './terminal-console-ui', //指定输出路径
+        outDir: '../terminal-console-web/src/main/resources/static', //指定输出路径
         assetsDir: 'assets', // 指定生成静态资源的存放路径
     },
 })

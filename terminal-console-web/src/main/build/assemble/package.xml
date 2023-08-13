@@ -47,6 +47,12 @@
 <!--            </includes>-->
         </fileSet>
 
+        <fileSet>
+            <directory>src/main/resources/static</directory>
+            <outputDirectory>static</outputDirectory>
+            <fileMode>0644</fileMode>
+        </fileSet>
+
         <!-- 将项目说明文档打包到docs目录中 -->
         <fileSet>
             <directory>.</directory>
