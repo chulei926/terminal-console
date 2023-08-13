@@ -80,14 +80,19 @@ public class ExecutorTest {
 
 	@Test
 	void telnetTest() {
-		authParam.setIp("192.168.60.60");
-		authParam.setPort(9999);
-		authParam.setUsername("huawei_user");
-		authParam.setPwd("Huawei@1234!");
+//		authParam.setIp("192.168.60.60");
+//		authParam.setPort(9999);
+//		authParam.setUsername("huawei_user");
+//		authParam.setPwd("Huawei@1234!");
 
-		List<Command> commands = Lists.newArrayList(new Command("sys"), new Command("dis cur"), new Command("quit").setIsLast(true));
+		authParam.setIp("vm");
+		authParam.setPort(23);
+		authParam.setUsername("root");
+		authParam.setPwd("csx@20190821");
+
+		List<Command> commands = Lists.newArrayList(new Command("ls -al"));
 		Executor executor = ExecutorFactory.getInstance().getExecutor(Protocol.TELNET);
-		InteractiveConfig config = ConfigFactory.getInstance().getConfig(Vendor.HW);
+		InteractiveConfig config = ConfigFactory.getInstance().getConfig(Vendor.LINUX);
 		ExecutionContext context = new ExecutionContext();
 		context.setAuthParam(authParam);
 		context.setExecutor(executor);

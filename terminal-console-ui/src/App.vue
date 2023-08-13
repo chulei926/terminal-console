@@ -67,12 +67,12 @@ import {auth} from './api/ssh'
 const dialogFormVisible = ref(false)
 const formLabelWidth = '80px'
 const form = reactive({
-	ip: '192.168.60.60',
-	port: 9999,
-	username: 'huawei_user',
-	pwd: 'Huawei@1234!',
+	ip: 'vm',
+	port: 23,
+	username: 'root',
+	pwd: 'csx@20190821',
 	protocol: 'TELNET',
-	vendor: 'HW',
+	vendor: 'LINUX',
 })
 
 let tabIndex = 0

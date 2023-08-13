@@ -7,20 +7,19 @@ import com.leichu.terminal.console.interactive.exception.ConnectionException;
 import com.leichu.terminal.console.interactive.model.Command;
 import com.leichu.terminal.console.interactive.utils.DateTimeUtils;
 import com.leichu.terminal.console.interactive.utils.RegUtils;
-import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.*;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
+import com.leichu.terminal.console.utils.ThreadPoolHelper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.net.telnet.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import java.io.InputStream;
+import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class TelnetClientConsole extends GenericInteractiveConsole {
 
@@ -31,15 +30,15 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 	private final InteractiveConfig config;
 	private final Charset charset;
 
-	private final EventLoopGroup group;
-	private final Bootstrap bootstrap;
+	private final TelnetClient telnetClient;
 
-	private Channel channel = null;
+	private InputStream readStream;
+	private PrintStream writeStream;
 
-	private final TelnetTcpClientHandler clientHandler;
+	private final ThreadPoolTaskExecutor responseReadThreadPool;
 
-	private static final StringBuffer RESPONSE = new StringBuffer();
-//	private static final List<byte[]> RESPONSE = new CopyOnWriteArrayList<>();
+
+	private static final List<byte[]> BUFFER = new CopyOnWriteArrayList<>();
 
 	public TelnetClientConsole(String host, Integer port, InteractiveConfig interactiveConfig, Charset charset) {
 		super(interactiveConfig, charset);
@@ -48,13 +47,16 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 		this.config = interactiveConfig;
 		this.charset = charset;
 
-		this.group = new NioEventLoopGroup();
-		this.bootstrap = new Bootstrap();
 		this.registerHook();
+		this.telnetClient = new TelnetClient();
 
-		clientHandler = new TelnetClientHandler(RESPONSE);
-//		clientHandler = new TelnetClientHandler4Stream(RESPONSE);
-
+		try {
+			telnetClient.addOptionHandler(new TerminalTypeOptionHandler("xterm", false, false, false, false));
+			telnetClient.addOptionHandler(new EchoOptionHandler(true, false, true, false));
+		} catch (Exception e){
+			logger.error("TelnetClient option handler set error!", e);
+		}
+		responseReadThreadPool = ThreadPoolHelper.createSimplePool(1, 1, "TELNET-RESPONSE-READER-");
 	}
 
 	private void registerHook() {
@@ -64,18 +66,26 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 
 	public void connect() {
 		try {
-			bootstrap.group(group)
-					.channel(NioSocketChannel.class)
-					.handler(new ChannelInitializer<SocketChannel>() {
-						@Override
-						protected void initChannel(SocketChannel ch) throws Exception {
-							ChannelPipeline pipeline = ch.pipeline();
-							pipeline.addLast(new StringDecoder(charset));
-							pipeline.addLast(new StringEncoder(charset));
-							pipeline.addLast((ChannelHandler) clientHandler);
+			this.telnetClient.connect(host, port);
+			this.readStream = this.telnetClient.getInputStream();
+			this.writeStream = new PrintStream(telnetClient.getOutputStream());
+
+			responseReadThreadPool.execute(() -> {
+				while (true) {
+					try {
+						byte[] bytes = readInputStream(readStream);
+						if (null != bytes && bytes.length > 0) {
+							BUFFER.add(bytes);
 						}
-					});
-			channel = bootstrap.connect(host, port).sync().channel();
+					} catch (Exception e) {
+						logger.error("Telnet console response read error!", e);
+					} finally {
+						DateTimeUtils.sleep(100L);
+					}
+				}
+			});
+
+
 			logger.info("Telnet channel connection success! Host:{} Port:{}", host, port);
 		} catch (Exception e) {
 			logger.error("Telnet channel connection error! Host:{} Port:{}", host, port, e);
@@ -83,25 +93,55 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 		}
 	}
 
+	private String readBuffer() {
+		if (BUFFER.size() == 0) {
+			return "";
+		}
+		int size = 0;
+		for (byte[] bytes : BUFFER) {
+			if (null == bytes) {
+				continue;
+			}
+			size += bytes.length;
+		}
+		if (size == 0) {
+			return "";
+		}
+		byte[] data = new byte[size];
+		int idx = 0;
+		for (byte[] bytes : BUFFER) {
+			if (null == bytes) {
+				continue;
+			}
+			for (byte b : bytes) {
+				data[idx] = b;
+				idx++;
+			}
+		}
+		return new String(data, charset);
+	}
+
 	public void login(String username, String password) {
 		while (true) {
 			try {
-//				byte[] data = read();
-				String response = RESPONSE.toString();
+				String response = readBuffer();
+				System.out.println(response);
 				if (StringUtils.isBlank(response)) {
 					DateTimeUtils.sleep(1);
 					continue;
 				}
+
 				if (match(response, config.getTelnetUsernameIdentifier())) {
-					clearCache();
-					channel.writeAndFlush(username + ENTER_KEY);
+					logger.info("Prompt for username:{}", response);
+					writeCommand(username);
 					continue;
 				}
 				if (match(response, config.getTelnetPasswordIdentifier())) {
-					clearCache();
-					channel.writeAndFlush(password + ENTER_KEY);
+					logger.info("Prompt for password:{}", response);
+					writeCommand(password);
 					String successFlag = readResponse4Login();
 					logger.info("Login success：{}", successFlag);
+					clearCache();
 					break;
 				}
 			} catch (Exception e) {
@@ -129,14 +169,13 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 	@Override
 	public void writeCommand(String command) throws Exception {
 		clearCache();
-		channel.writeAndFlush(command + ENTER_KEY);
+		writeStream.print(command.endsWith(ENTER_KEY) ? command : command + ENTER_KEY);
+		writeStream.flush();
 	}
 
 	@Override
 	public String readResponse() throws Exception {
-		String response = RESPONSE.toString();
-		clearCache();
-		return response;
+		return readBuffer();
 	}
 
 	@Override
@@ -147,13 +186,13 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 	private String readResponse4Login() throws Exception {
 		StringBuffer result = new StringBuffer();
 		do {
-			String resp = RESPONSE.toString();
+			String resp = readBuffer();
 			if (StringUtils.isNotBlank(resp)) {
 				result.append(resp);
 				clearCache();
-				if (matchEnd(result.toString())) {
-					break;
-				}
+			}
+			if (matchEnd(result.toString())) {
+				break;
 			}
 		} while (true);
 		return result.toString();
@@ -162,11 +201,9 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 
 	public void disconnect() {
 		try {
-			if (null != channel) {
-				channel.close();
-			}
-			if (null != group) {
-				group.shutdownGracefully();
+
+			if (null != this.telnetClient) {
+				this.telnetClient.disconnect();
 			}
 			logger.info("Telnet client closed! Host:{} Port:{}", host, port);
 		} catch (Exception e) {
@@ -191,31 +228,21 @@ public class TelnetClientConsole extends GenericInteractiveConsole {
 		return charset;
 	}
 
-	public EventLoopGroup getGroup() {
-		return group;
-	}
-
-	public void setChannel(Channel channel) {
-		this.channel = channel;
-	}
 
 	@Override
 	public void write(byte[] content) throws Exception {
-		RESPONSE.append(new String(content));
-		if (content.length == 1 && content[0] == 13) {
-			channel.writeAndFlush(ENTER_KEY);
-			return;
-		}
-		System.out.println("Input:" + new String(content));
-		channel.writeAndFlush(content);
+		writeStream.print(new String(content, charset));
+		writeStream.flush();
 	}
 
 	@Override
 	public byte[] read() throws Exception {
-		return readResponse().getBytes();
+		byte[] bytes = readBuffer().getBytes(charset);
+		clearCache();
+		return bytes;
 	}
 
 	private void clearCache() {
-		RESPONSE.setLength(0);
+		BUFFER.clear();
 	}
 }

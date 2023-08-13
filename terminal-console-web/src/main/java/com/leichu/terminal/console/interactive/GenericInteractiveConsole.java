@@ -55,7 +55,7 @@ public abstract class GenericInteractiveConsole implements InteractiveConsole {
 	 */
 	public String sendCommand(Command command) throws Exception {
 		writeCommand(command.getCommand());
-		String response = readResponse(command, command.getTimeout());
+		String response =readResponse(command, command.getTimeout());
 		if (StringUtils.isBlank(response)) {
 			return "";
 		}
