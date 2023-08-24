@@ -95,6 +95,13 @@
 			<version>0.3.0</version>
 		</dependency>
 
+		<!-- https://mvnrepository.com/artifact/org.apache.sshd/sshd-sftp -->
+		<dependency>
+			<groupId>org.apache.sshd</groupId>
+			<artifactId>sshd-sftp</artifactId>
+			<version>2.9.2</version>
+		</dependency>
+
 		<!-- https://mvnrepository.com/artifact/org.reflections/reflections -->
 		<dependency>
 			<groupId>org.reflections</groupId>
@@ -121,14 +128,6 @@
 			<groupId>commons-net</groupId>
 			<artifactId>commons-net</artifactId>
 			<version>3.9.0</version>
-		</dependency>
-
-
-		<!-- https://mvnrepository.com/artifact/io.netty/netty-all -->
-		<dependency>
-			<groupId>io.netty</groupId>
-			<artifactId>netty-all</artifactId>
-			<version>4.1.95.Final</version>
 		</dependency>
 
 		<dependency>
